@@ -14,6 +14,7 @@ async function main() {
     .option('out', { type: 'string', demandOption: true, describe: 'Output directory' })
     .option('batchSize', { type: 'number', default: 20, describe: 'Batch size for Tumblr API requests' })
     .option('limit', { type: 'number', describe: 'Maximum number of posts to export' })
+    .option('postId', { type: 'string', describe: 'Retrieve and export a single Tumblr post by its ID' })
     .help()
     .argv;
 
@@ -23,9 +24,30 @@ async function main() {
     outputDir: argv.out,
     batchSize: argv.batchSize,
     limit: argv.limit,
+    postId: argv.postId
   };
 
   await fs.mkdir(config.outputDir, { recursive: true });
+
+  // If postId is specified, fetch and export only that post
+  if (config.postId) {
+    const axios = require('axios');
+    const url = `https://api.tumblr.com/v2/blog/${config.blogName}/posts?api_key=${config.apiKey}&id=${config.postId}`;
+    try {
+      const res = await axios.get(url);
+      const posts = res.data?.response?.posts || [];
+      if (posts.length === 0) {
+        console.error(`No post found with ID ${config.postId}`);
+        process.exit(1);
+      }
+      await writePost(posts[0], config.outputDir);
+      console.log(`Exported post ${config.postId}`);
+    } catch (err) {
+      console.error(`Failed to fetch or export post ${config.postId}:`, err);
+      process.exit(1);
+    }
+    return;
+  }
 
   let offset = 0;
   let totalProcessed = 0;

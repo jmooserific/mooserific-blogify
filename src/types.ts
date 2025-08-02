@@ -42,4 +42,5 @@ export interface Config {
   outputDir: string;
   batchSize?: number;
   limit?: number;
+  postId?: string;
 }
