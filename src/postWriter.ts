@@ -32,11 +32,20 @@ export async function writePost(post: TumblrPost, outDir: string): Promise<void>
     }
   }
 
-  // Download videos
+  // Download videos with zero-padded names (write directly to file)
   let videoFiles: string[] = [];
-  for (const videoUrl of videos) {
-    const videoFile = await downloadVideo(videoUrl, postDir);
-    videoFiles.push(videoFile);
+  for (let i = 0; i < videos.length; i++) {
+    const videoUrl = videos[i];
+    const ext = path.extname(videoUrl).split('?')[0] || '.mp4';
+    const filename = `video_${String(i + 1).padStart(2, '0')}${ext}`;
+    const filePath = path.join(postDir, filename);
+    try {
+      const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+      await fs.writeFile(filePath, response.data);
+      videoFiles.push(filename);
+    } catch (err) {
+      console.error(`Failed to download video: ${videoUrl}`, err);
+    }
   }
 
   // Write post.json

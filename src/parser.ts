@@ -67,6 +67,36 @@ export function extractPostData(post: TumblrPost) {
       });
     }
   }
-  const videos = post.video_url ? [post.video_url] : [];
+  // Extract video URLs from <video> tags in post.body, picking highest resolution
+  let videos: string[] = [];
+  if (post.body) {
+    // Match all <video ...> tags
+    const videoTags = post.body.match(/<video [^>]*>[\s\S]*?<\/video>/gi);
+    if (videoTags) {
+      videos = videoTags.map((videoTag: string) => {
+        // Find all <source ...> tags inside the video tag
+        const sourceTags = videoTag.match(/<source [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
+        let url = '';
+        if (sourceTags && sourceTags.length > 0) {
+          // If multiple sources, pick the one with the highest resolution (look for type or resolution in tag)
+          // We'll prefer the last one, assuming it's highest resolution (like with images)
+          const lastSource = sourceTags[sourceTags.length - 1];
+          const srcMatch = lastSource.match(/src=["']([^"'>]+)["']/i);
+          if (srcMatch) url = srcMatch[1];
+        } else {
+          // Fallback: look for src attribute on <video> itself
+          const srcMatch = videoTag.match(/src=["']([^"'>]+)["']/i);
+          if (srcMatch) url = srcMatch[1];
+        }
+        return url;
+      }).filter(Boolean);
+      // Flatten in case of multiple <video> tags
+      videos = videos.flat();
+    }
+  }
+  // Fallback: if no <video> tags, check for video_url field
+  if ((!videos || videos.length === 0) && post.video_url) {
+    videos = [post.video_url];
+  }
   return { date: formattedDate, author, caption, photos, videos };
 }
