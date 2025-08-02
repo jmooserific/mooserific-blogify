@@ -43,7 +43,30 @@ export function extractPostData(post: TumblrPost) {
   } else {
     caption = post.caption || '';
   }
-  const photos = post.photos || [];
+  // Extract photo URLs from <img> tags in post.body
+  let photos: { url: string }[] = [];
+  if (post.body) {
+    // Match all <img ...> tags
+    const imgTags = post.body.match(/<img [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
+    if (imgTags) {
+      photos = imgTags.map((imgTag: string) => {
+        // Extract src attribute
+        const match = imgTag.match(/src=["']([^"'>]+)["']/i);
+        let url = match ? match[1] : '';
+        // If srcset exists, pick the highest resolution
+        const srcsetMatch = imgTag.match(/srcset=["']([^"'>]+)["']/i);
+        if (srcsetMatch) {
+          // srcset is a comma-separated list: url size, url size, ...
+          const srcset = srcsetMatch[1].split(',').map(s => s.trim());
+          // Pick the last entry (highest resolution)
+          const last = srcset[srcset.length - 1];
+          const urlMatch = last.match(/([^ ]+)/);
+          if (urlMatch) url = urlMatch[1];
+        }
+        return { url };
+      });
+    }
+  }
   const videos = post.video_url ? [post.video_url] : [];
   return { date: formattedDate, author, caption, photos, videos };
 }
