@@ -1,7 +1,7 @@
-# Tumblr2Moose Utility
+# Mooserific Blogify
 
 ## Overview
-Tumblr2Moose is a command-line utility designed to export Tumblr posts into a directory layout compatible with the Mooserific Blog. It uses the Tumblr API to retrieve posts from the specified blog, extracting relevant information and organizing it into a structured format.
+Mooserific Blogify is a command-line utility designed to export Tumblr posts into a directory layout compatible with the [Mooserific Blog](https://github.com/jmooserific/mooserific-blog). It uses the Tumblr API to retrieve posts from the specified blog, extracting relevant information and organizing it into a structured format.
 
 ## Features
 - Converts Tumblr posts into a structured folder format.

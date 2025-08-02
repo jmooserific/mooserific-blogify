@@ -1,5 +1,5 @@
 {
-  "name": "tumblr2moose",
+  "name": "mooserific-blogify",
   "version": "1.0.0",
   "description": "A command-line utility to export Tumblr posts into the Mooserific Blog format.",
   "main": "src/cli.ts",
@@ -23,7 +23,7 @@
     "typescript": "^4.5.2"
   },
   "bin": {
-    "tumblr2moose": "./dist/cli.js"
+    "mooserific-blogify": "./dist/cli.js"
   },
   "keywords": [
     "tumblr",
