@@ -1,7 +1,7 @@
 ---
 applyTo: '**'
 ---
-Here's a sample of an old-format response from the Tumblr `/v2/blog/${blogName}/posts` API that you can use as a reference:
+Here's a sample of an old-format photo response from the Tumblr `/v2/blog/${blogName}/posts` API that you can use as a reference:
 
 ```json
 {

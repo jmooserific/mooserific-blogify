@@ -37,12 +37,30 @@ export function extractPostData(post: TumblrPost) {
 
   if (post.type === 'photo' && post.photos) {
     // Old format: photo type posts with photos array
-    caption = post.caption || '';
+    if (post.caption) {
+      const turndownService = new TurndownService();
+      caption = turndownService.turndown(post.caption);
+    } else {
+      caption = '';
+    }
     
     // Extract photos from the photos array, using original_size
     photos = post.photos.map(photo => ({
       url: photo.original_size.url
     }));
+  } else if (post.type === 'video') {
+    // Old format: video type posts with video_url
+    if (post.caption) {
+      const turndownService = new TurndownService();
+      caption = turndownService.turndown(post.caption);
+    } else {
+      caption = '';
+    }
+    
+    // Extract video URL
+    if (post.video_url) {
+      videos = [post.video_url];
+    }
   } else {
     // New format: text type posts with content in body
     if (post.body) {
