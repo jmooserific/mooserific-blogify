@@ -31,6 +31,7 @@ export interface TumblrPost {
   post_author: string;
   body?: string; // HTML content of the post (newer format)
   caption?: string; // Direct caption (older format)
+  title?: string; // Optional title (older format)
   photos?: TumblrPhoto[]; // Photo array (older format)
   video?: TumblrVideo;
   video_url?: string;

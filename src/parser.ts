@@ -1,4 +1,3 @@
-// Tumblr API parser for Tumblr2Moose
 import axios from 'axios';
 import TurndownService from 'turndown';
 import { TumblrPost, Config } from './types';
@@ -16,6 +15,30 @@ export async function fetchTumblrPosts(config: Config, offset = 0): Promise<Tumb
     console.error('Error fetching Tumblr posts:', err);
     return [];
   }
+}
+
+function createTurndownService(): TurndownService {
+  const turndownService = new TurndownService();
+  
+  // Add custom rule to preserve paragraph spacing
+  turndownService.addRule('paragraphSpacing', {
+    filter: 'p',
+    replacement: function (content) {
+      return '\n\n' + content + '\n\n';
+    }
+  });
+  
+  return turndownService;
+}
+
+function removeImagesFromContent(content: string): string {
+  // Remove <img> tags and their surrounding <figure> or <p> tags
+  return content
+    .replace(/<figure[^>]*>[\s\S]*?<img[^>]*>[\s\S]*?<\/figure>/gi, '')
+    .replace(/<p[^>]*>[\s\S]*?<img[^>]*>[\s\S]*?<\/p>/gi, '')
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/\n{3,}/g, '\n\n') // Clean up excessive line breaks
+    .trim();
 }
 
 export function extractPostData(post: TumblrPost) {
@@ -37,11 +60,20 @@ export function extractPostData(post: TumblrPost) {
 
   if (post.type === 'photo' && post.photos) {
     // Old format: photo type posts with photos array
-    if (post.caption) {
-      const turndownService = new TurndownService();
-      caption = turndownService.turndown(post.caption);
-    } else {
-      caption = '';
+    let contentToProcess = post.caption || '';
+    
+    // Remove images from caption since they'll be in the photos array
+    contentToProcess = removeImagesFromContent(contentToProcess);
+    
+    if (contentToProcess) {
+      const turndownService = createTurndownService();
+      caption = turndownService.turndown(contentToProcess).trim();
+    }
+    
+    // Add title if present
+    if (post.title && post.title.trim()) {
+      const titleMarkdown = `**${post.title.trim()}**`;
+      caption = caption ? `${titleMarkdown}\n\n${caption}` : titleMarkdown;
     }
     
     // Extract photos from the photos array, using original_size
@@ -50,11 +82,17 @@ export function extractPostData(post: TumblrPost) {
     }));
   } else if (post.type === 'video') {
     // Old format: video type posts with video_url
-    if (post.caption) {
-      const turndownService = new TurndownService();
-      caption = turndownService.turndown(post.caption);
-    } else {
-      caption = '';
+    let contentToProcess = post.caption || '';
+    
+    if (contentToProcess) {
+      const turndownService = createTurndownService();
+      caption = turndownService.turndown(contentToProcess).trim();
+    }
+    
+    // Add title if present
+    if (post.title && post.title.trim()) {
+      const titleMarkdown = `**${post.title.trim()}**`;
+      caption = caption ? `${titleMarkdown}\n\n${caption}` : titleMarkdown;
     }
     
     // Extract video URL
@@ -63,16 +101,28 @@ export function extractPostData(post: TumblrPost) {
     }
   } else {
     // New format: text type posts with content in body
+    let contentToProcess = '';
+    
     if (post.body) {
-      const turndownService = new TurndownService();
-      // Get all <p>...</p> blocks
-      const pTags = post.body.match(/<p>(.*?)<\/p>/gis);
-      if (pTags) {
-        // Convert each <p> block to Markdown
-        caption = pTags.map((p: string) => turndownService.turndown(p)).join('\n\n');
+      // Remove images from body content before processing caption
+      contentToProcess = removeImagesFromContent(post.body);
+      
+      const turndownService = createTurndownService();
+      if (contentToProcess.trim()) {
+        caption = turndownService.turndown(contentToProcess).trim();
       }
-    } else {
-      caption = post.caption || '';
+    }
+    
+    // Fallback to caption field if body processing didn't yield content
+    if (!caption && post.caption) {
+      const turndownService = createTurndownService();
+      caption = turndownService.turndown(post.caption).trim();
+    }
+    
+    // Add title if present
+    if (post.title && post.title.trim()) {
+      const titleMarkdown = `**${post.title.trim()}**`;
+      caption = caption ? `${titleMarkdown}\n\n${caption}` : titleMarkdown;
     }
 
     // Extract photo URLs from <img> tags in post.body
