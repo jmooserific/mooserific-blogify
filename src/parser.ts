@@ -30,73 +30,88 @@ export function extractPostData(post: TumblrPost) {
 
   const author = post.post_author || "Imported";
 
-  // Extract text from <p> tags in post.content and convert to Markdown
+  // Handle both old photo format and new text format
   let caption = '';
-  if (post.body) {
-    const turndownService = new TurndownService();
-    // Get all <p>...</p> blocks
-    const pTags = post.body.match(/<p>(.*?)<\/p>/gis);
-    if (pTags) {
-      // Convert each <p> block to Markdown
-      caption = pTags.map((p: string) => turndownService.turndown(p)).join('\n\n');
-    }
-  } else {
-    caption = post.caption || '';
-  }
-  // Extract photo URLs from <img> tags in post.body
   let photos: { url: string }[] = [];
-  if (post.body) {
-    // Match all <img ...> tags
-    const imgTags = post.body.match(/<img [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
-    if (imgTags) {
-      photos = imgTags.map((imgTag: string) => {
-        // Extract src attribute
-        const match = imgTag.match(/src=["']([^"'>]+)["']/i);
-        let url = match ? match[1] : '';
-        // If srcset exists, pick the highest resolution
-        const srcsetMatch = imgTag.match(/srcset=["']([^"'>]+)["']/i);
-        if (srcsetMatch) {
-          // srcset is a comma-separated list: url size, url size, ...
-          const srcset = srcsetMatch[1].split(',').map(s => s.trim());
-          // Pick the last entry (highest resolution)
-          const last = srcset[srcset.length - 1];
-          const urlMatch = last.match(/([^ ]+)/);
-          if (urlMatch) url = urlMatch[1];
-        }
-        return { url };
-      });
-    }
-  }
-  // Extract video URLs from <video> tags in post.body, picking highest resolution
   let videos: string[] = [];
-  if (post.body) {
-    // Match all <video ...> tags
-    const videoTags = post.body.match(/<video [^>]*>[\s\S]*?<\/video>/gi);
-    if (videoTags) {
-      videos = videoTags.map((videoTag: string) => {
-        // Find all <source ...> tags inside the video tag
-        const sourceTags = videoTag.match(/<source [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
-        let url = '';
-        if (sourceTags && sourceTags.length > 0) {
-          // If multiple sources, pick the one with the highest resolution (look for type or resolution in tag)
-          // We'll prefer the last one, assuming it's highest resolution (like with images)
-          const lastSource = sourceTags[sourceTags.length - 1];
-          const srcMatch = lastSource.match(/src=["']([^"'>]+)["']/i);
-          if (srcMatch) url = srcMatch[1];
-        } else {
-          // Fallback: look for src attribute on <video> itself
-          const srcMatch = videoTag.match(/src=["']([^"'>]+)["']/i);
-          if (srcMatch) url = srcMatch[1];
-        }
-        return url;
-      }).filter(Boolean);
-      // Flatten in case of multiple <video> tags
-      videos = videos.flat();
+
+  if (post.type === 'photo' && post.photos) {
+    // Old format: photo type posts with photos array
+    caption = post.caption || '';
+    
+    // Extract photos from the photos array, using original_size
+    photos = post.photos.map(photo => ({
+      url: photo.original_size.url
+    }));
+  } else {
+    // New format: text type posts with content in body
+    if (post.body) {
+      const turndownService = new TurndownService();
+      // Get all <p>...</p> blocks
+      const pTags = post.body.match(/<p>(.*?)<\/p>/gis);
+      if (pTags) {
+        // Convert each <p> block to Markdown
+        caption = pTags.map((p: string) => turndownService.turndown(p)).join('\n\n');
+      }
+    } else {
+      caption = post.caption || '';
+    }
+
+    // Extract photo URLs from <img> tags in post.body
+    if (post.body) {
+      // Match all <img ...> tags
+      const imgTags = post.body.match(/<img [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
+      if (imgTags) {
+        photos = imgTags.map((imgTag: string) => {
+          // Extract src attribute
+          const match = imgTag.match(/src=["']([^"'>]+)["']/i);
+          let url = match ? match[1] : '';
+          // If srcset exists, pick the highest resolution
+          const srcsetMatch = imgTag.match(/srcset=["']([^"'>]+)["']/i);
+          if (srcsetMatch) {
+            // srcset is a comma-separated list: url size, url size, ...
+            const srcset = srcsetMatch[1].split(',').map(s => s.trim());
+            // Pick the last entry (highest resolution)
+            const last = srcset[srcset.length - 1];
+            const urlMatch = last.match(/([^ ]+)/);
+            if (urlMatch) url = urlMatch[1];
+          }
+          return { url };
+        });
+      }
+    }
+
+    // Extract video URLs from <video> tags in post.body, picking highest resolution
+    if (post.body) {
+      // Match all <video ...> tags
+      const videoTags = post.body.match(/<video [^>]*>[\s\S]*?<\/video>/gi);
+      if (videoTags) {
+        videos = videoTags.map((videoTag: string) => {
+          // Find all <source ...> tags inside the video tag
+          const sourceTags = videoTag.match(/<source [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
+          let url = '';
+          if (sourceTags && sourceTags.length > 0) {
+            // If multiple sources, pick the one with the highest resolution (look for type or resolution in tag)
+            // We'll prefer the last one, assuming it's highest resolution (like with images)
+            const lastSource = sourceTags[sourceTags.length - 1];
+            const srcMatch = lastSource.match(/src=["']([^"'>]+)["']/i);
+            if (srcMatch) url = srcMatch[1];
+          } else {
+            // Fallback: look for src attribute on <video> itself
+            const srcMatch = videoTag.match(/src=["']([^"'>]+)["']/i);
+            if (srcMatch) url = srcMatch[1];
+          }
+          return url;
+        }).filter(Boolean);
+        // Flatten in case of multiple <video> tags
+        videos = videos.flat();
+      }
+    }
+    // Fallback: if no <video> tags, check for video_url field
+    if ((!videos || videos.length === 0) && post.video_url) {
+      videos = [post.video_url];
     }
   }
-  // Fallback: if no <video> tags, check for video_url field
-  if ((!videos || videos.length === 0) && post.video_url) {
-    videos = [post.video_url];
-  }
+  
   return { date: formattedDate, author, caption, photos, videos };
 }
