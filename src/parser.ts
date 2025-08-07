@@ -62,6 +62,27 @@ export function extractPostData(post: TumblrPost) {
     // Old format: photo type posts with photos array
     let contentToProcess = post.caption || '';
     
+    // FIRST: Extract any images from caption before removing them
+    let captionPhotos: { url: string }[] = [];
+    if (post.caption) {
+      const imgTags = post.caption.match(/<img [^>]*src=["']([^"'>]+)["'][^>]*>/gi);
+      if (imgTags) {
+        captionPhotos = imgTags.map((imgTag: string) => {
+          const match = imgTag.match(/src=["']([^"'>]+)["']/i);
+          let url = match ? match[1] : '';
+          // Check for srcset for higher resolution
+          const srcsetMatch = imgTag.match(/srcset=["']([^"'>]+)["']/i);
+          if (srcsetMatch) {
+            const srcset = srcsetMatch[1].split(',').map(s => s.trim());
+            const last = srcset[srcset.length - 1];
+            const urlMatch = last.match(/([^ ]+)/);
+            if (urlMatch) url = urlMatch[1];
+          }
+          return { url };
+        });
+      }
+    }
+    
     // Remove images from caption since they'll be in the photos array
     contentToProcess = removeImagesFromContent(contentToProcess);
     
@@ -76,10 +97,18 @@ export function extractPostData(post: TumblrPost) {
       caption = caption ? `${titleMarkdown}\n\n${caption}` : titleMarkdown;
     }
     
-    // Extract photos from the photos array, using original_size
-    photos = post.photos.map(photo => ({
+    // Extract photos from BOTH the photos array AND any found in caption
+    const photosArrayPhotos = post.photos.map(photo => ({
       url: photo.original_size.url
     }));
+    
+    // Combine and deduplicate photos
+    const allPhotos = [...photosArrayPhotos, ...captionPhotos];
+    const uniquePhotos = allPhotos.filter((photo, index, self) => 
+      index === self.findIndex(p => p.url === photo.url)
+    );
+    
+    photos = uniquePhotos;
   } else if (post.type === 'video') {
     // Old format: video type posts with video_url
     let contentToProcess = post.caption || '';
